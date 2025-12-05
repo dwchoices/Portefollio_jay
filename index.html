@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio - TAMEKLO Komlan Mawuli</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: { colors: { 'primary': '#4f46e5','secondary': '#1f2937' } } }
+    }
+  </script>
+
+  <!-- Backup CSS si Tailwind non chargé -->
+  <noscript>
+    <style>
+      body { font-family: Arial, sans-serif; background: #f9f9f9; color: #111; padding: 10px; }
+      .card { border:1px solid #ccc; padding:10px; margin:10px 0; border-radius:6px; background:#fff; }
+      a { color:#4f46e5; text-decoration:underline; }
+      button { cursor:pointer; padding:5px 10px; border-radius:5px; background:#4f46e5; color:#fff; border:none; }
+      .dark body { background:#111; color:#eee; }
+    </style>
+  </noscript>
+
+  <!-- React & Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// --- Données ---
+const MY_GITHUB = "https://github.com/Dwchoices";
+const MY_LINKEDIN = "https://www.linkedin.com/in/komlan-tameklo-793575239/";
+const MY_WHATSAPP_LINK = "https://wa.me/22871591600";
+const PROFILE_PIC_URL = "https://images.unsplash.com/photo-1531384441138-2736e62e0919?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80";
+const MY_EMAIL = "claudetameklo25@gmail.com";
+const MY_PHONE = "+228 71 591 600";
+const MY_CV_URL = "https://my-portfolio-cv-url.com/tameklo_komlan_cv.pdf";
+
+const workflows = [
+  { name: "Email Marketing Automation", type: "email", icon: "mail", jsonUrl: "https://raw.githubusercontent.com/Dwchoices/templates/main/email_workflow.json" },
+  { name: "CRM Management", type: "crm", icon: "users", jsonUrl: "https://raw.githubusercontent.com/Dwchoices/templates/main/crm_workflow.json" },
+  { name: "Event Notifications", type: "notification", icon: "bell", jsonUrl: "https://raw.githubusercontent.com/Dwchoices/templates/main/notification_workflow.json" },
+  { name: "Order Management", type: "order", icon: "shopping-cart", jsonUrl: "https://raw.githubusercontent.com/Dwchoices/templates/main/order_workflow.json" },
+  { name: "Google Sheets Sync", type: "google_sheets", icon: "file-text", jsonUrl: "https://raw.githubusercontent.com/Dwchoices/templates/main/sheets_workflow.json" },
+  { name: "Slack Alerts", type: "slack", icon: "slack", jsonUrl: "https://raw.githubusercontent.com/Dwchoices/templates/main/slack_workflow.json" },
+  { name: "Webhook Trigger", type: "webhook", icon: "zap", jsonUrl: "https://raw.githubusercontent.com/Dwchoices/templates/main/webhook_workflow.json" }
+];
+
+while(workflows.length<30){
+  let i=workflows.length+1;
+  const types=["Email","CRM","Notification","Order","Google Sheets","Slack","Webhook"];
+  const icons=["mail","users","bell","shopping-cart","file-text","slack","zap"];
+  workflows.push({ name:`Workflow n8n ${i} - ${types[i%types.length]}`, type: types[i%types.length], icon: icons[i%icons.length], jsonUrl:`https://raw.githubusercontent.com/Dwchoices/templates/main/workflow_fictif_${i}.json` });
+}
+
+// --- Composants ---
+const Icon = ({ name, className='', size=20 })=>{ useEffect(()=>{ if(lucide) lucide.createIcons(); }, [name]); return <i data-lucide={name} className={className} style={{width:size,height:size}}></i>; };
+
+function Toast({ message, onClose }){ useEffect(()=>{ const t=setTimeout(onClose,3000); return ()=>clearTimeout(t); },[onClose]); return <div className="fixed bottom-4 right-4 bg-primary text-white px-4 py-2 rounded-lg shadow-xl flex items-center gap-2 z-50"><Icon name="check-circle" size={18}/>{message}</div>; }
+
+function useDarkMode(){
+  const [isDarkMode,setIsDarkMode]=useState(()=>{ const saved=localStorage.getItem('theme'); return saved==='dark'?true:false; });
+  useEffect(()=>{ const root=document.documentElement; if(isDarkMode){root.classList.add('dark');root.classList.remove('light');localStorage.setItem('theme','dark');}else{root.classList.add('light');root.classList.remove('dark');localStorage.setItem('theme','light');} },[isDarkMode]);
+  return [isDarkMode,setIsDarkMode];
+}
+
+// --- Chatbot OpenAI ---
+function ChatbotAI(){
+  const [isOpen,setIsOpen]=useState(false);
+  const [messages,setMessages]=useState([{from:"bot",text:"Bonjour ! Je suis Mawuli, votre assistant intelligent."}]);
+  const [input,setInput]=useState("");
+
+  const sendMessage=async()=>{
+    if(!input) return;
+    const userMsg=input; setInput("");
+    setMessages(prev=>[...prev,{from:"user",text:userMsg}]);
+    try{
+      const res=await fetch("http://localhost:3000/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:userMsg})});
+      const data=await res.json();
+      setMessages(prev=>[...prev,{from:"bot",text:data.reply}]);
+    }catch(err){
+      setMessages(prev=>[...prev,{from:"bot",text:"Désolé, problème avec l'assistant AI."}]);
+    }
+  };
+  const handleKeyPress=e=>{ if(e.key==="Enter") sendMessage(); };
+
+  return (
+    <div className="fixed bottom-4 right-4 w-80 bg-white dark:bg-gray-800 shadow-xl rounded-lg flex flex-col overflow-hidden z-50 border border-gray-200 dark:border-gray-700">
+      {!isOpen ? (
+        <div onClick={()=>setIsOpen(true)} className="p-3 bg-primary rounded-full cursor-pointer text-white text-center"><Icon name="message-circle" size={32}/></div>
+      ) : (
+        <>
+          <div className="bg-primary text-white p-3 flex justify-between items-center">
+            <span>Chat AI avec Mawuli</span>
+            <button onClick={()=>setIsOpen(false)}><Icon name="x" size={18}/></button>
+          </div>
+          <div className="flex-1 p-4 overflow-y-auto h-64 flex flex-col gap-3">
+            {messages.map((m,i)=>(
+              <div key={i} className={`flex ${m.from==="user"?"justify-end":"justify-start"}`}>
+                <span className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${m.from==="user"?"bg-primary text-white":"bg-gray-200 dark:bg-gray-700 dark:text-gray-50"}`}>{m.text}</span>
+              </div>
+            ))}
+            <div ref={el=>el&&el.scrollIntoView({behavior:'smooth'})}></div>
+          </div>
+          <div className="flex p-2 gap-2 border-t border-gray-300 dark:border-gray-700">
+            <input className="flex-1 px-3 py-2 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary" value={input} onChange={e=>setInput(e.target.value)} onKeyPress={handleKeyPress} placeholder="Écrire un message..."/>
+            <button className="px-3 py-1 bg-primary text-white rounded hover:bg-indigo-700" onClick={sendMessage}><Icon name="send" size={18} className="rotate-45"/></button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// --- Workflows avec Voir Plus ---
+function Workflows(){
+  const [visibleCount,setVisibleCount]=useState(12);
+  const [showToast,setShowToast]=useState(null);
+  const handleDownload=(url,filename)=>{
+    fetch(url).then(r=>r.blob()).then(blob=>{
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      setShowToast(`${filename} téléchargé !`);
+    }).catch(()=>setShowToast("Erreur de téléchargement !"));
+  };
+  const loadMore=()=>setVisibleCount(prev=>Math.min(prev+12,workflows.length));
+  return (
+    <section id="Maquettes-n8n" className="mb-12">
+      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Icon name="zap" size={24}/> Maquettes n8n</h2>
+      <div className="grid gap-6">
+        {workflows.slice(0,visibleCount).map((wf,i)=>(
+          <div key={i} className="card p-4 shadow hover:shadow-xl flex flex-col justify-between hover:border-primary transition-all duration-300">
+            <div>
+              <Icon name={wf.icon} className="text-primary dark:text-indigo-400 mb-2" size={24}/>
+              <h3 className="font-bold text-lg mb-1">{wf.name}</h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">Type: {wf.type}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button className="px-3 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2" onClick={()=>window.open(wf.jsonUrl,"_blank")}><Icon name="eye" size={16}/> Prévisualiser JSON</button>
+              <button onClick={()=>handleDownload(wf.jsonUrl,`${wf.name.replace(/\s+/g,'_')}.json`)} className="px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors flex items-center justify-center gap-2"><Icon name="download" size={16}/> Télécharger JSON</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {visibleCount<workflows.length && (<div className="flex justify-center mt-6"><button onClick={loadMore} className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-indigo-700 transition-colors">Voir plus</button></div>)}
+      {showToast && <Toast message={showToast} onClose={()=>setShowToast(null)}/>}
+    </section>
+  );
+}
+
+// --- App Principale ---
+function App(){
+  const [showToast,setShowToast]=useState(null);
+  const [isDarkMode,setIsDarkMode]=useDarkMode();
+
+  const copyEmail=useCallback(async()=>{
+    try{ await navigator.clipboard.writeText(MY_EMAIL); setShowToast("Email copié !"); }
+    catch(e){ setShowToast("Erreur de copie !"); }
+  },[]);
+
+  const handleDownloadCV=useCallback(()=>{
+    if(MY_CV_URL.includes("placeholder")){ setShowToast("L'URL du CV n'est pas encore configurée."); }
+    else{
+      fetch(MY_CV_URL).then(r=>r.blob()).then(blob=>{
+        const a=document.createElement('a');
+        a.href=URL.createObjectURL(blob);
+        a.download="TAMEKLO_Komlan_CV.pdf";
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+        setShowToast("CV téléchargé !");
+      }).catch(()=>setShowToast("Erreur de téléchargement !"));
+    }
+  },[]);
+
+  return (
+    <div className="min-h-screen p-6 font-sans text-gray-800 dark:text-gray-50 transition-colors duration-300 max-w-6xl mx-auto">
+      {/* Header */}
+      <header className="flex items-center justify-between mb-12 border-b pb-4 border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-4">
+          <img src={PROFILE_PIC_URL} alt="Tameklo" className="w-16 h-16 rounded-full border-2 border-primary shadow-lg object-cover"/>
+          <div>
+            <h1 className="text-2xl font-bold">TAMEKLO Komlan Mawuli</h1>
+            <p className="text-gray-600 dark:text-gray-400">Fullstack Developer & n8n Expert</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <button onClick={()=>setIsDarkMode(!isDarkMode)} className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <Icon name={isDarkMode?"sun":"moon"} />
+          </button>
+          <a href="#Contact" className="hidden sm:flex px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-700 items-center gap-2 shadow-md transition-colors"><Icon name="send" size={18}/> <span>Contactez-moi</span></a>
+        </div>
+      </header>
+
+      {/* Navigation */}
+      <nav className="flex gap-4 mb-8 flex-wrap border-b pb-3 border-gray-100 dark:border-gray-800">
+        {["Accueil","À propos","Biographie","Compétences","Exploits","Maquettes n8n","Contact","Langues"].map(m=>(
+          <a key={m} href={`#${m.replace(/\s+/g,'-')}`} className="text-primary dark:text-indigo-400 hover:underline flex items-center gap-1 font-medium text-sm transition-colors">
+            <Icon name={m==="Accueil"?"home":m==="À propos"?"user-check":m==="Biographie"?"book-open-check":m==="Compétences"?"cpu":m==="Exploits"?"trophy":m==="Maquettes n8n"?"zap":m==="Contact"?"contact":"languages"} size={16}/>
+            {m}
+          </a>
+        ))}
+      </nav>
+
+      {/* Sections */}
+      <section id="Accueil" className="mb-12">
+        <h2 className="text-2xl font-bold mb-4">Bienvenue sur mon Portfolio</h2>
+        <p className="text-lg text-gray-700 dark:text-gray-300">Bonjour, je suis TAMEKLO Komlan Mawuli, votre partenaire pour des solutions logicielles complètes et une automatisation des processus à la pointe de la technologie (n8n, APIs).</p>
+      </section>
+
+      <section id="À-propos" className="mb-12">
+        <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Icon name="user-check" size={24}/> À propos</h2>
+        <p className="text-gray-700 dark:text-gray-300 card p-4 shadow-sm">Développeur Fullstack passionné et expert en automatisation de workflow avec n8n. Je conçois, développe et déploie des applications web performantes de A à Z. Mon objectif : simplifier les opérations et accélérer la croissance de mes clients grâce à des solutions techniques efficaces.</p>
+      </section>
+
+      {/* Ici tu peux ajouter Biographie, Compétences, Exploits, Langues comme avant */}
+
+      <Workflows />
+
+      <ChatbotAI />
+
+      {/* Footer */}
+      <footer className="mt-12 text-center text-gray-600 dark:text-gray-400 border-t pt-4 border-gray-200 dark:border-gray-700">
+        <div className="flex justify-center gap-4 mb-2">
+          <a href={MY_GITHUB} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors"><Icon name="github" size={20}/></a>
+          <a href={MY_LINKEDIN} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors"><Icon name="linkedin" size={20}/></a>
+          <a href={`mailto:${MY_EMAIL}`} className="hover:text-primary transition-colors"><Icon name="mail" size={20}/></a>
+        </div>
+        <p>© {new Date().getFullYear()} TAMEKLO Komlan Mawuli. Tous droits réservés.</p>
+      </footer>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
